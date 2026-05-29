@@ -3,6 +3,7 @@
 This repository features production-ready automation workflows built on n8n. They demonstrate advanced API orchestration, real-time data synchronization, scheduling logic, and complex JavaScript manipulation.
 
 ## 🛠️ Core Technical Competencies Demonstrated
+
 * **State & Loop Control:** Advanced iteration utilizing conditional batch loops (`SplitInBatches`) and sequential throttling to prevent API rate-limiting.
 * **Data Transformation:** High-performance data mapping, in-memory indexing, lookup-table construction, and array manipulation via custom Node.js execution blocks.
 * **Dynamic Date/Time Operations:** Sophisticated temporal scheduling, handling time zone offsets (`America/Sao_Paulo`), custom exception intervals, and dynamic date calculations.
@@ -13,29 +14,8 @@ This repository features production-ready automation workflows built on n8n. The
 ## 📋 Featured Workflows
 
 ### 1. Smart Multi-Appointment Aggregator & Messaging Gateway (`agende_API`)
+
 * **Problem Solved:** A clinic system requires automated WhatsApp confirmation, but patients with multiple treatments on the same day were receiving multiple disjointed messages.
 * **Technical Implementation:**
-  * Implemented an automated cron trigger to crawl and resolve potential professional profiles using dynamic ID sequences.
-  * Authored a JavaScript aggregation pipeline that processes appointment arrays in memory, grouping records by the patient's phone number.
-  * Formats multiple doctor sessions and time frames into a single unified JSON body before hitting the messaging gateway, cutting API payloads and payload communication costs.
-
-### 2. Multi-Source Relational Data Normalization (`feegow_clinic`)
-* **Problem Solved:** Normalizing disjointed medical system exports into structured datasets without running database migrations or heavy server scripts.
-* **Technical Implementation:**
-  * Orchestrated parallel fetching across 4 endpoints: Appointments, Procedures, Professionals, and Specialties.
-  * Utilized `Object.fromEntries` inside an execution runtime to create local indexes.
-  * Runs real-time data lookups to substitute relational IDs with human-readable string descriptions, applying rounding algorithms to standardize times (`HH:00`) instantly.
-
-### 3. Google Calendar Real-Time Scheduling Engine & Booking Backend
-* **Problem Solved:** Building a scalable, secure, two-way scheduling system without a native database, capable of checking slots, setting bookings, reading logs, and handling real-time cancellations.
-* **Technical Implementation:**
-  * Implemented an API-driven switchboard (`Switch` block) separating structural logic rules based on incoming webhook event intents (`get_slots`, `set_slot`, etc.).
-  * Designed complex availability verification scripts that calculate custom calendar rules, multi-week windows, and working-hour limitations.
-  * Integrated a critical race-condition checker: checks current calendar states right before triggering execution blocks to ensure high system integrity.
-
----
-
-## 🚀 How to Import and Run
-1. Download or copy the `.json` file from any workflow directory.
-2. Open your n8n workspace, click **Workflows** > **Import from File** (or paste directly onto the canvas).
-3. Configure your API tokens inside the configuration parameters or workflow credentials storage.
+    * Implemented an automated cron trigger to crawl and resolve potential professional profiles using dynamic ID sequences.
+    * Authored a JavaScript aggregation pipeline that processes appointment arrays in memory, grouping records by the patient's phone number.
