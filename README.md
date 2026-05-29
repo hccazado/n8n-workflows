@@ -9,8 +9,7 @@ Production workflows built with n8n and Node.js for real client projects. No tut
 ### 01 · WhatsApp Appointment Confirmation — agende API
 
 Clinics using the agende platform needed to send WhatsApp confirmations, but patients with multiple appointments on the same day were getting multiple separate messages. Confusing and unprofessional.
-
-This workflow aggregates all same-day appointments per patient into a single message before sending. It runs on a cron schedule, crawls professional profiles via dynamic ID sequences, groups appointments in memory by phone number, and dispatches one clean message per patient.
+This workflow aggregates all same-day appointments per patient into a single message before sending. It runs on a cron schedule, generates a sequential array of 200 IDs to crawl every potential professional profile in the clinic, loops through each one fetching their schedules, filters and normalizes the data, then groups all same-day appointments by patient phone number via a custom JS aggregation block. The consolidated payload is dispatched to a chatbot webhook for WhatsApp delivery. Wait nodes between loop iterations prevent API rate-limiting.
 
 **Stack:** n8n · Node.js · agende API · WhatsApp Business API
 
