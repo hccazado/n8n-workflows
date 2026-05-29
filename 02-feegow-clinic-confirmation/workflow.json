@@ -1,0 +1,560 @@
+{
+  "name": "Appointments-confirmation[feegow_clinic]-V3",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        32,
+        -112
+      ],
+      "id": "e00818da-568a-42f2-8eda-536eb39c4828",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1280,
+        112
+      ],
+      "id": "1a428e64-4cce-47f8-85ad-bdf68ddaffe0",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "// carregar datasets\nconst agendamentos = $('Extrair agendamentos').all().map(i => i.json);\nconst procedimentos = $('Extrair Procedimentos').all().map(i => i.json);\nconst profissionais = $('Extrair Profissionais').all().map(i => i.json);\nconst especialidades = $('Extrair Especialidades').all().map(i => i.json);\n\n// criar índices (lookup)\nconst mapProc = Object.fromEntries(\n  procedimentos.map(p => [p.id_procedimento, p.nome_procedimento])\n);\n\nconst mapProf = Object.fromEntries(\n  profissionais.map(p => [p.id_profissional, p.nome_profissional])\n);\n\nconst mapEsp = Object.fromEntries(\n  especialidades.map(e => [e.id_especialidade, e.nome_especialidade])\n);\n\n// processar tudo\nconst resultado = [];\n\nfor (const ag of agendamentos) {\n  const nomeEspecialidade = mapEsp[ag.especialidade_id] || 'Não Informado';\n  const nomeProcedimento = mapProc[ag.procedimento_id] || 'Não Informado';\n  \n  // Pegamos o horário que vem do banco\n  let horarioFinal = ag.horario;\n\n  // --- ARREDONDAMENTO PARA BAIXO (FORMATO HH:00) ---\n  if (horarioFinal && typeof horarioFinal === 'string' && horarioFinal.includes(':')) {\n    const hora = horarioFinal.split(':')[0];\n    // Garante 2 dígitos e fixa os minutos em 00, sem segundos.\n    horarioFinal = `${hora.padStart(2, '0')}:00`;\n  }\n\n  resultado.push({\n    agendamento_id: ag.agendamento_id,\n    data: ag.data,\n    horario: horarioFinal,\n    profissional: mapProf[ag.profissional_id] || 'Não Informado',\n    procedimento: nomeProcedimento,\n    especialidade: nomeEspecialidade,\n    paciente_id: ag.paciente_id,\n    valor: ag.valor\n  });\n}\n\nreturn resultado.map(r => ({ json: r }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        112
+      ],
+      "id": "4c013d82-e4c5-4809-8b63-71eb5864da96",
+      "name": "Gerando agendamento"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().flatMap(item => \n  (item.json.content || [])             // extract the content array\n    .filter(ag => ag.status_id !== 11) // exclude status_id 11\n    .map(ag => ({                       // pick only the fields you want\n      json: {\n        agendamento_id: ag.agendamento_id,\n        data: ag.data,\n        horario: ag.horario,\n        paciente_id: ag.paciente_id,\n        procedimento_id: ag.procedimento_id,\n        valor: ag.valor,\n        status_id: ag.status_id,\n        local_id: ag.local_id,\n        profissional_id: ag.profissional_id,\n        notas: ag.notas,\n        especialidade_id: ag.especialidade_id,\n      }\n    }))\n);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        -112
+      ],
+      "id": "848952b6-2854-41c9-8f3e-4a09af1b115c",
+      "name": "Extrair agendamentos"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().flatMap(item => \n  (item.json.content || [])             // extract the content array\n    .map(pd => ({                       // pick only the fields you want\n      json: {\n        nome_procedimento: pd.nome,\n        id_procedimento: pd.procedimento_id,\n        dias_retorno: pd.dias_retorno,\n        valor: pd.valor,\n      }\n    }))\n);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        48
+      ],
+      "id": "e4e79cfb-7af0-43e2-9680-7dcf6e57cc2d",
+      "name": "Extrair Procedimentos"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().flatMap(item => \n  (item.json.content || [])             // extract the content array\n    .map(ps => ({                       // pick only the fields you want\n      json: {\n        id_profissional: ps.profissional_id,\n        nome_profissional: ps.nome,\n      }\n    }))\n);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        224
+      ],
+      "id": "80720631-a02c-4566-8454-c85189f19342",
+      "name": "Extrair Profissionais"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().flatMap(item => \n  (item.json.content || [])             // extract the content array\n    .map(ep => ({                       // pick only the fields you want\n      json: {\n        id_especialidade: ep.especialidade_id,\n        nome_especialidade: ep.nome,\n      }\n    }))\n);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        400
+      ],
+      "id": "de3e497e-d4ab-4117-9f1b-37a90bb194eb",
+      "name": "Extrair Especialidades"
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch",
+        "numberInputs": 4,
+        "output": "empty"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        864,
+        80
+      ],
+      "id": "ea39d141-1b6d-4582-8cda-131484d3d30a",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://chatbotplatform.com/customerUUID",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "=agendamento_id",
+              "value": "={{ $('Loop Over Items').item.json.agendamento_id }}"
+            },
+            {
+              "name": "data",
+              "value": "={{ $('Loop Over Items').item.json.data }}"
+            },
+            {
+              "name": "horario",
+              "value": "={{ $('Loop Over Items').item.json.horario }}"
+            },
+            {
+              "name": "procedimento",
+              "value": "={{ $('Loop Over Items').item.json.procedimento }}"
+            },
+            {
+              "name": "paciente",
+              "value": "={{ $node[\"Buscar paciente\"].json[\"content\"][\"nome\"] }}"
+            },
+            {
+              "name": "telefone",
+              "value": "={{ \"+55\" + $node[\"Buscar paciente\"].json[\"content\"][\"celulares\"][0].replace(/\\D/g, \"\").replace(/^55/, \"\") }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1696,
+        128
+      ],
+      "id": "3cf7b277-dd85-4bbe-9552-0d0ac888241d",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1872,
+        128
+      ],
+      "id": "3508d49a-3589-4267-a815-13d997deac38",
+      "name": "Wait",
+      "webhookId": "6e8f2696-9ca9-4d64-80de-9851ab2d5d72"
+    },
+    {
+      "parameters": {
+        "url": "https://api.feegow.com/v1/api/patient/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "paciente_id",
+              "value": "={{ $json.paciente_id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-access-token",
+              "value": "={{ $('config').item.json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1504,
+        128
+      ],
+      "id": "d6e7eaf3-02c6-459c-b5a3-2235f98de00b",
+      "name": "Buscar paciente"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"token\": \"customer bearer token\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        -112
+      ],
+      "id": "1dbd3e40-3fff-4612-ba00-dc6b9100c050",
+      "name": "config"
+    },
+    {
+      "parameters": {
+        "url": "https://api.feegow.com/v1/api/appoints/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "data_start",
+              "value": "={{ $now.plus({ days: 1 }).toFormat('dd-MM-yyyy') }}"
+            },
+            {
+              "name": "data_end",
+              "value": "={{ $now.plus({ days: [5].includes($now.dayOfWeek) ? 3 : ([6].includes($now.dayOfWeek) ? 2 : 1) }).toFormat('dd-MM-yyyy') }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-access-token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        -112
+      ],
+      "id": "272f92a6-a5b9-4743-ac31-843ff0ae3045",
+      "name": "Fetch agendamentos"
+    },
+    {
+      "parameters": {
+        "url": "https://api.feegow.com/v1/api/procedures/list",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-access-token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        48
+      ],
+      "id": "6d0fb368-f3d5-4d51-9bed-8fbdb15994ab",
+      "name": "Fetch procedures"
+    },
+    {
+      "parameters": {
+        "url": "https://api.feegow.com/v1/api/professional/list",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-access-token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        224
+      ],
+      "id": "03d96735-7422-4bdf-9a2f-980669d58845",
+      "name": "Fetch professionals"
+    },
+    {
+      "parameters": {
+        "url": "https://api.feegow.com/v1/api/specialties/list",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-access-token",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        464,
+        400
+      ],
+      "id": "77ffdf67-b41f-41f9-ac2d-63b9a6d1982a",
+      "name": "Fetch specialties"
+    },
+    {
+      "parameters": {
+        "content": "**Merging fetched data**\n-Merges fetched data, replacing IDs with meaningful data",
+        "height": 384,
+        "width": 192
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        992,
+        -48
+      ],
+      "id": "cc465b2e-293f-43a9-9e3f-ca04550c4dbb",
+      "name": "Sticky Note"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Buscar paciente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair agendamentos": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Procedimentos": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Extrair Profissionais": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Extrair Especialidades": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Gerando agendamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerando agendamento": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar paciente": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "config": {
+      "main": [
+        [
+          {
+            "node": "Fetch procedures",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch agendamentos",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch professionals",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch specialties",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch agendamentos": {
+      "main": [
+        [
+          {
+            "node": "Extrair agendamentos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch procedures": {
+      "main": [
+        [
+          {
+            "node": "Extrair Procedimentos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch professionals": {
+      "main": [
+        [
+          {
+            "node": "Extrair Profissionais",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch specialties": {
+      "main": [
+        [
+          {
+            "node": "Extrair Especialidades",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "America/Sao_Paulo",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "15b77490-6ee8-427b-bcac-a379337f2874",
+  "meta": {
+    "instanceId": "db7697b2ccf6b172b230e4c6099aee580cff6d7365e4c3efedf89ab1217e98e8"
+  },
+  "id": "FYxJkWRCcyK4ZhXu",
+  "tags": []
+}

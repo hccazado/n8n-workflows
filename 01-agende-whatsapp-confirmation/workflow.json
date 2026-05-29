@@ -1,0 +1,780 @@
+{
+  "name": "Appointments confirmation[agende_API]v2",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "triggerAtHour": 7,
+              "triggerAtMinute": 55
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -32,
+        0
+      ],
+      "id": "b60b58e1-0966-4b85-af92-484c965d3720",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"token\": \"customer bearer token\",\n  \"baseURL\":\"https://integrations.agende.com.br\" \n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        128,
+        0
+      ],
+      "id": "2cc89ea8-70b0-4d24-b36b-65bed67ee64b",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        512,
+        0
+      ],
+      "id": "9713b6ef-21b7-4e99-8d0b-c4afdac90eff",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "amount": 2.1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        704,
+        16
+      ],
+      "id": "df10ad18-fec8-4cfc-a27c-8ff63efee2b1",
+      "name": "Wait",
+      "webhookId": "ce1b9d6b-f082-48f4-9d6b-7bcb44cd4d95"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c53dc857-ff02-4cf2-845d-c50f4475d469",
+              "name": "idProfissional",
+              "value": "={{ $json.idprofissional }}",
+              "type": "number"
+            },
+            {
+              "id": "640347ef-2bcf-4417-9b50-f60fe16069f9",
+              "name": "idAgenda",
+              "value": "={{ $json.id }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1088,
+        16
+      ],
+      "id": "5de249a1-e03f-4a81-b8f3-f25c88ac2419",
+      "name": "Edit Professional Data",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4c2612e5-984d-4e75-b30f-a56e3eb242fb",
+              "leftValue": "={{ $json.idProfissional }}",
+              "rightValue": "={{ $json.idProfissional }}",
+              "operator": {
+                "type": "number",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "d8ea19d4-232a-4258-87d0-3c2628cab7e6",
+              "leftValue": "={{ $json.idAgenda }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1296,
+        -16
+      ],
+      "id": "734e9829-7fae-4914-a235-2d96b8c99a4d",
+      "name": "Filter Empty Professionals"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1504,
+        -16
+      ],
+      "id": "d5c81ad2-b168-4fb1-af3c-91d3eb144328",
+      "name": "Professionals Loop",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5a84bd09-d780-4908-837a-91ea4ab3184f",
+              "name": "idagendamento",
+              "value": "={{ $json.idagendamento }}",
+              "type": "number"
+            },
+            {
+              "id": "05bc9dff-33a1-4292-8324-627a07f95da1",
+              "name": "inicio",
+              "value": "={{ $json.inicio }}",
+              "type": "string"
+            },
+            {
+              "id": "31946aef-c30e-489c-919f-3f9ae1ecebc8",
+              "name": "fim",
+              "value": "={{ $json.fim }}",
+              "type": "string"
+            },
+            {
+              "id": "87d152c1-d145-410b-8c62-cf899f21f444",
+              "name": "confirmado",
+              "value": "={{ $json.confirmado }}",
+              "type": "boolean"
+            },
+            {
+              "id": "a04cab33-e04c-4775-b063-d935ff80729d",
+              "name": "ProfissionalNome",
+              "value": "={{ $json.profissional.nome }}",
+              "type": "string"
+            },
+            {
+              "id": "2a9050b4-0eb6-4494-a1d1-d61cea86e1a8",
+              "name": "pacienteNome",
+              "value": "={{ $json.paciente.nome }}",
+              "type": "string"
+            },
+            {
+              "id": "41891ecb-e318-41bb-9f86-aa8071727dac",
+              "name": "pacienteCelular",
+              "value": "={{ $json.paciente.celular }}",
+              "type": "string"
+            },
+            {
+              "id": "fefd76c3-6e51-4b72-a524-f02588d85c34",
+              "name": "usuarioNome",
+              "value": "={{ $json.usuario.nome }}",
+              "type": "string"
+            },
+            {
+              "id": "f0a75f29-d8c0-4936-b063-18fa78009e0d",
+              "name": "agendamentoStatus",
+              "value": "={{ $json.agendamentostatus.idagendamentostatus }}",
+              "type": "number"
+            },
+            {
+              "id": "722ce730-2fe8-46d8-8ec2-01228a9a8348",
+              "name": "agendamentoStatusDescricao",
+              "value": "={{ $json.agendamentostatus.descricao }}",
+              "type": "string"
+            },
+            {
+              "id": "f806b5c2-1120-4e9e-8008-e33a6ef9c24b",
+              "name": "agendamentoProcedimento",
+              "value": "={{ $json.agendamentoprocedimentos[0] }}",
+              "type": "string"
+            },
+            {
+              "id": "0f097b3d-cb52-42be-b459-799627035945",
+              "name": "observacao",
+              "value": "={{ $json.observacao }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2096,
+        0
+      ],
+      "id": "20add18c-725b-4062-a07c-1c2d87f85167",
+      "name": "Edit Schedule fields",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cdea9896-864d-4e1f-a544-7652b2f821cc",
+              "leftValue": "={{ $json.confirmado }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "67ea82e4-c033-4b7d-8e3b-b450f3773532",
+              "leftValue": "={{ $json.agendamentoStatus }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "f61391ec-9239-4c5d-9256-c3de64e9f9b7",
+              "leftValue": "={{ $json.pacienteCelular }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        2288,
+        0
+      ],
+      "id": "ee7aa7b8-a335-44db-b985-eeb6f6d501ca",
+      "name": "Filter schedules",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "amount": 2.1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1744,
+        0
+      ],
+      "id": "f57cc8e7-684a-4eee-94af-e7dcfb16dc68",
+      "name": "Wait1",
+      "webhookId": "a6a1aa0e-fdcd-447f-870c-ee6716aae52e"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1247521a-bb80-4591-888f-2f21ad78fbcb",
+              "leftValue": "={{ $json.idagendamento }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2480,
+        0
+      ],
+      "id": "c1156676-f878-4dc2-a42f-eb1b589a1b73",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "content": "**Generating a sequential 200 items array to find professionals and schedules**",
+        "height": 384,
+        "width": 224
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        -160
+      ],
+      "id": "f8dc6cb2-62f3-4646-9cbc-bc4234a9e09c",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Edit Fields').item.json.baseURL }}/profissional/find-agendas",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ $json.id }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $('Edit Fields').item.json.token }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        880,
+        16
+      ],
+      "id": "16ceb846-6243-41ee-bd2d-76b89e407c51",
+      "name": "Fetching professional",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "**Brute force checking the 200 IDs to find every professional in the clinic**",
+        "height": 384,
+        "width": 192
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        832,
+        -160
+      ],
+      "id": "9ae9848f-d943-4675-90b7-c88628ca1f76",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "**Extracting Schedule from found professional**",
+        "height": 384,
+        "width": 192
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        -160
+      ],
+      "id": "96105b56-696c-47ab-b587-ba1b3af9baa4",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Edit Fields').item.json.baseURL }}/agendamento/find-agendamentos",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $('Edit Fields').item.json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"agendas\": [\n    {\n      \"idagenda\": {{ $json.idAgenda }},\n      \"idprofissional\": {{ $json.idProfissional }}\n    }\n  ],\n  \"dataInicial\": \"{{ $now.weekday === 5 ? $now.plus({ days: 3 }).toUTC().set({ hour: 7, minute: 0, second: 0, millisecond: 0 }).toISO() : $now.plus({ days: 1 }).toUTC().set({ hour: 7, minute: 0, second: 0, millisecond: 0 }).toISO() }}\",\n  \"dataFinal\": \"{{ $now.weekday === 5 ? $now.plus({ days: 3 }).toUTC().set({ hour: 23, minute: 0, second: 0, millisecond: 0 }).toISO() : $now.plus({ days: 1 }).toUTC().set({ hour: 23, minute: 0, second: 0, millisecond: 0 }).toISO() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1920,
+        0
+      ],
+      "id": "0f23f469-7e01-4756-8c9b-d5dbc12a3769",
+      "name": "Fetch Professional Schedule",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "content": "**Mapping and renaming necesary fields**",
+        "height": 384,
+        "width": 192
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2048,
+        -160
+      ],
+      "id": "027f55a2-6c3f-4f26-b961-7ff681e0e5c8",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "**Filtering confirmed schedules**",
+        "height": 384,
+        "width": 192
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2256,
+        -160
+      ],
+      "id": "5bc379f9-d240-4842-9402-f7c3af15839e",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://chatbot.com/customeruuid",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"IdAgendamento\": \"{{ $json.ids_string }}\",\n  \"DataAgendamento\": \"{{ $json.data_agendamento }}\",\n  \"Telefone\": \"+55{{ $json.pacienteCelular.replace(/\\D/g, '') }}\",\n  \"Paciente\": \"{{ $json.pacienteNome }}\",\n  \"Nome\": \"{{ $json.nome }}\",\n  \"Profissional\": \"{{ $json.detalhes_profissionais }}\",\n  \"Responsavel\": \"{{ $json.usuarioResponsavel }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2080,
+        -368
+      ],
+      "id": "01af8178-ca1d-4248-ae0a-d0a77a208be8",
+      "name": "Chatbot - Webhook"
+    },
+    {
+      "parameters": {
+        "content": "**Checking schedule ID**",
+        "height": 384,
+        "width": 192
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        2464,
+        -160
+      ],
+      "id": "45492832-3b38-46ac-ab85-f941cda1c080",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\n\nif (!allItems || allItems.length === 0) {\n    return [];\n}\n\nconst grouped = {};\n\nfor (const item of allItems) {\n    const a = item.json;\n\n    // Filtra apenas itens que possuem dados de agendamento válidos\n    if (!a.pacienteNome || !a.pacienteCelular || !a.idagendamento) continue;\n\n    const celular = String(a.pacienteCelular).replace(/\\D/g, '');\n    const key = celular; \n\n    if (!grouped[key]) {\n        const primeiroNomePaciente = a.pacienteNome.split(' ')[0];\n        \n        grouped[key] = {\n            nome: primeiroNomePaciente,\n            pacienteNome: a.pacienteNome,\n            pacienteCelular: celular,\n            usuarioResponsavel: a.usuarioResponsavel,\n            ids_lista: [],\n            inicioRaw: a.inicio, // Mantemos para o formatador de data\n            dataBase: \"\",\n            agendaPorProfissional: {} \n        };\n    }\n\n    // Processamento de Data e Hora\n    let horaStr = \"00:00\";\n    try {\n        const dataObjeto = new Date(a.inicio);\n        horaStr = dataObjeto.toLocaleTimeString('pt-BR', { \n            hour: '2-digit', \n            minute: '2-digit', \n            timeZone: 'America/Sao_Paulo' \n        });\n\n        if (!grouped[key].dataBase) {\n            const dia = String(dataObjeto.getDate()).padStart(2, '0');\n            const mes = String(dataObjeto.getMonth() + 1).padStart(2, '0');\n            const ano = String(dataObjeto.getFullYear()).slice(-2);\n            grouped[key].dataBase = `${dia}/${mes}/${ano}`;\n        }\n    } catch (e) {\n        horaStr = String(a.inicio).substring(11, 16);\n    }\n\n    const nomeCompletoProf = a.ProfissionalNome || \"Profissional\";\n    const primeiroNomeProf = nomeCompletoProf.trim().split(' ')[0];\n\n    if (!grouped[key].agendaPorProfissional[primeiroNomeProf]) {\n        grouped[key].agendaPorProfissional[primeiroNomeProf] = [];\n    }\n    grouped[key].agendaPorProfissional[primeiroNomeProf].push(horaStr);\n    \n    grouped[key].ids_lista.push(a.idagendamento);\n}\n\n// Formatação Final para o Webhook\nreturn Object.values(grouped).map(p => {\n    \n    const detalhesArray = Object.entries(p.agendaPorProfissional).map(([primeiroNome, horarios]) => {\n        const horasOrdenadas = [...new Set(horarios)].sort().join(' '); // Remove duplicados de hora e ordena\n        return `Dr(a) ${primeiroNome}: ${horasOrdenadas}`;\n    });\n\n    return {\n        json: {\n            nome: p.nome,\n            pacienteNome: p.pacienteNome,\n            pacienteCelular: p.pacienteCelular,\n            inicio: p.inicioRaw, // Enviado para o Webhook usar no Luxon/DateTime\n            data_agendamento: p.dataBase,\n            detalhes_profissionais: detalhesArray.join(', '), \n            ids_string: p.ids_lista.join(','),\n            usuarioResponsavel: p.usuarioResponsavel\n        }\n    };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        -368
+      ],
+      "id": "97573f15-a2db-4ddc-bdc9-7a1e9d71f463",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "content": "**Grouping schedule(s) ID linked to the same phone**\n-This step groups multiple schedules from the same patient (based on phone number), ensuring that all ids and critical info. will be submitted in one single whatsapp confirmation message.",
+        "height": 384,
+        "width": 304
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        -576
+      ],
+      "id": "c9a91d1b-babf-4447-9a23-20ad56fcaa38",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "jsCode": "return Array.from({ length: 200 }, (_, i) => ({ json: { id: i + 1 } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        0
+      ],
+      "id": "a7affbec-fe8b-4619-835f-3036afc81f38",
+      "name": "Professionals Array"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Professionals Array",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Filter Empty Professionals",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Fetching professional",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Professional Data": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Empty Professionals": {
+      "main": [
+        [
+          {
+            "node": "Professionals Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Professionals Loop": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Schedule fields": {
+      "main": [
+        [
+          {
+            "node": "Filter schedules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter schedules": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Professional Schedule",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Professionals Loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Professionals Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetching professional": {
+      "main": [
+        [
+          {
+            "node": "Edit Professional Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Professional Schedule": {
+      "main": [
+        [
+          {
+            "node": "Edit Schedule fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chatbot - Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Chatbot - Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Professionals Array": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "timezone": "America/Sao_Paulo",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "fc9a6da8-a421-4f41-ac20-7dd78ad4463a",
+  "meta": {
+    "instanceId": "db7697b2ccf6b172b230e4c6099aee580cff6d7365e4c3efedf89ab1217e98e8"
+  },
+  "id": "oEmXPLDFaaSIcQnc",
+  "tags": []
+}

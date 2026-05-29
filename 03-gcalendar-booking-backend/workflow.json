@@ -1,0 +1,709 @@
+{
+  "name": "GCalendar Automated Scheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $json.profissionalEmail }}",
+          "mode": "id"
+        },
+        "start": "={{ $json.startTime }}",
+        "end": "={{ $json.endTime }}",
+        "useDefaultReminders": false,
+        "additionalFields": {
+          "attendees": [
+            "={{ $('Webhook Call').item.json.body.email }}"
+          ],
+          "description": "={{ $json.procedureName }} - {{ $('Webhook Call').item.json.body.name }}",
+          "summary": "={{ $json.procedureName }} - {{ $('Webhook Call').item.json.body.name }}"
+        },
+        "remindersUi": {
+          "remindersValues": [
+            {
+              "method": "popup",
+              "minutes": 30
+            },
+            {
+              "method": "email",
+              "minutes": 60
+            }
+          ]
+        }
+      },
+      "id": "b7686b8f-876a-4022-b3c9-deba1f46a3bd",
+      "name": "Create Calendar Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        32,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.availableSlots ? { availableSlots: $json.availableSlots } : { message: $json.message || \"Unknown error\" } }}",
+        "options": {}
+      },
+      "id": "cff3dc7c-3b91-4936-82eb-1c0188a19c0b",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        32,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const allItems = $input.all();\n  const configNode = $('config').first();\n  const fullConfig = configNode.json;\n  const body = $('Webhook Call').first().json.body;\n  const timezone = 'America/Sao_Paulo';\n  const stepIntervalMin = 15;\n  const clinicCliffHour = 20;\n\n  const procedureId = body.procedureId || body.proceduresId;\n  const procedure = fullConfig.procedures[String(procedureId)];\n  const slotDurationMin = procedure.duration;\n  const conflictDurationMin = procedure.isParallel ? (procedure.setupMinutes || 0) : procedure.duration;\n\n  let allSlots = [];\n\n  for (const item of allItems) {\n    const data = item.json;\n    if (data.error) continue;\n\n    const calendarId = data.profissionalEmail;\n    const professionalName = data.professionalName;\n    const busy = data.calendars && data.calendars[calendarId] ? data.calendars[calendarId].busy : [];\n    \n    const busyPeriods = busy.map(b => ({\n      start: new Date(b.start).getTime(),\n      end: new Date(b.end).getTime()\n    }));\n\n    const defaultProv = { start_h: 8, start_m: 0, end_h: 18, end_m: 0 };\n    const prof = fullConfig.professionals[calendarId] || { default: defaultProv, exceptions: {} };\n\n    for (let d = 0; d <= 14; d++) {\n      let day = new Date();\n      day.setDate(day.getDate() + d);\n      day.setHours(0, 0, 0, 0);\n      const weekday = day.getDay();\n      if (weekday === 0) continue;\n\n      let dayRules = prof.exceptions[weekday] || prof.default;\n      const datePrefix = day.toISOString().split('T')[0];\n      let workStart = new Date(`${datePrefix}T${String(dayRules.start_h).padStart(2, '0')}:${String(dayRules.start_m).padStart(2, '0')}:00-03:00`);\n      let workEnd = new Date(`${datePrefix}T${String(dayRules.end_h).padStart(2, '0')}:${String(dayRules.end_m).padStart(2, '0')}:00-03:00`);\n      let cliffEnd = new Date(`${datePrefix}T${String(clinicCliffHour).padStart(2, '0')}:00:00-03:00`);\n\n      let cursor = new Date(workStart);\n      if (d === 0) {\n        const now = new Date();\n        if (now > cursor) {\n          cursor = new Date(now);\n          const m = cursor.getMinutes();\n          cursor.setMinutes(Math.ceil(m / stepIntervalMin) * stepIntervalMin, 0, 0);\n        }\n      }\n\n      while (cursor.getTime() <= workEnd.getTime()) {\n        const slotStart = cursor.getTime();\n        const slotEndTotal = slotStart + slotDurationMin * 60000;\n        const slotEndForConflict = slotStart + conflictDurationMin * 60000;\n\n        if (slotEndTotal > cliffEnd.getTime()) break;\n\n        const isBusy = conflictDurationMin > 0 ? busyPeriods.some(b => (slotStart < b.end && slotEndForConflict > b.start)) : false;\n\n        if (!isBusy) {\n          allSlots.push({\n            iso: cursor.toLocaleString('sv-SE', { timeZone: timezone }).replace(' ', 'T') + '-03:00',\n            display: cursor.toLocaleString('pt-BR', {\n              timeZone: timezone,\n              weekday: 'short', day: 'numeric', month: 'short',\n              hour: '2-digit', minute: '2-digit'\n            }) + ` (${professionalName})`,\n            professional: professionalName,\n            profissional: professionalName\n          });\n        }\n        cursor = new Date(cursor.getTime() + stepIntervalMin * 60000);\n      }\n    }\n  }\n\n  allSlots.sort((a, b) => new Date(a.iso) - new Date(b.iso));\n  return [{ json: { availableSlots: allSlots } }];\n} catch (e) {\n  return [{ json: { error: true, message: e.message } }];\n}"
+      },
+      "id": "18076ad6-b028-4585-9fed-f00e5f80e21e",
+      "name": "Get free slots",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\":\"{{ $json.status }}\",\n  \"startTime\": \"{{ $json.start.dateTime }}\"\n}",
+        "options": {}
+      },
+      "id": "cfe53bbf-5ec8-477f-8fcb-abe1c286bf76",
+      "name": "Respond to Webhook1",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        272,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0b3e668b-8f2b-413e-9d96-c6e1b3efa301",
+              "leftValue": "={{ $json.slotFree }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "be1f22b5-78d4-404a-aa77-79499a85dd78",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -176,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": {{ $json.slotFree }},\n  \"message\": \"{{ $json.message }}\",\n  \"availableSlots\": {{ JSON.stringify($json.availableSlots) }}\n}",
+        "options": {}
+      },
+      "id": "883ab8b8-8d20-4092-8c8c-cd7a0f2a642e",
+      "name": "Respond to Webhook2",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        32,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"Clinic\": {\n    \"working_hour_start\": 8,\n    \"working_minutes_start\": 0,\n    \"working_hour_end\": 20,\n    \"working_minutes_end\": 0\n  },\n  \"procedures\": {\n    \"1\": {\n      \"name\": \"Standard Consulting Session\",\n      \"duration\": 30,\n      \"responsible\": [\n        \"John Doe\",\n        \"Jane Doe\"\n      ]\n    },\n    \"2\": {\n      \"name\": \"Advanced Technical Assessment\",\n      \"duration\": 60,\n      \"responsible\": [\n        \"John Doe\"\n      ]\n    },\n    \"3\": {\n      \"name\": \"Parallel Architecture Review\",\n      \"duration\": 45,\n      \"responsible\": [\n        \"John Doe\",\n        \"Jane Doe\",\n        \"Alex Smith\"\n      ],\n      \"isParallel\": true,\n      \"setupMinutes\": 0\n    }\n  },\n  \"professionals\": {\n    \"john.doe@company.com\": {\n      \"name\": \"John Doe\",\n      \"default\": {\n        \"start_h\": 8,\n        \"start_m\": 0,\n        \"end_h\": 18,\n        \"end_m\": 0\n      },\n      \"exceptions\": {}\n    },\n    \"alex.smith@company.com\": {\n      \"name\": \"Alex Smith\",\n      \"default\": {\n        \"start_h\": 8,\n        \"start_m\": 0,\n        \"end_h\": 18,\n        \"end_m\": 0\n      },\n      \"exceptions\": {\n        \"4\": {\n          \"start_h\": 13,\n          \"start_m\": 0,\n          \"end_h\": 18,\n          \"end_m\": 0\n        }\n      }\n    },\n    \"jane.doe@company.com\": {\n      \"name\": \"Jane Doe\",\n      \"default\": {\n        \"start_h\": 13,\n        \"start_m\": 0,\n        \"end_h\": 18,\n        \"end_m\": 0\n      },\n      \"exceptions\": {}\n    }\n  }\n}",
+        "options": {}
+      },
+      "id": "7d9e0a78-580c-463c-b1fa-8e532887dcd0",
+      "name": "config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1344,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gcalendar-scheduling-webhook",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "08b8ba11-484c-4a56-9dad-cc9d15f317f9",
+      "name": "Webhook Call",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -1552,
+        400
+      ],
+      "webhookId": "b3b7daad-b9d6-4428-96f3-7f72a83080fc"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": {{ !!$json.id && !$json.error }},\n  \"status\": \"{{ $json.error ? 'error' : 'success' }}\",\n  \"message\": \"{{ $json.error ? $json.error.message : 'Event executed successfully' }}\"\n}",
+        "options": {}
+      },
+      "id": "49b35668-cc18-48e1-b67d-30bf0f3be0cd",
+      "name": "Respond to Webhook3",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        32,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Webhook Call').item.json.body.action }}",
+                    "rightValue": "get_slots",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "905e7933-f5d0-44c8-9dc8-91546c09a4da"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6c44f982-46dc-4fe7-bc8c-b5d911b2e911",
+                    "leftValue": "={{ $('Webhook Call').item.json.body.action }}",
+                    "rightValue": "set_slot",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7f1955a6-74cc-4b90-b855-bdb9cf2f4902",
+                    "leftValue": "={{ $('Webhook Call').item.json.body.action }}",
+                    "rightValue": "get_events",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "1136f299-ed04-4858-bd97-c2b06b451565",
+                    "leftValue": "={{ $('Webhook Call').item.json.body.action }}",
+                    "rightValue": "delete_slot",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ca55235c-1638-45e6-8c6d-defea04d58ea",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -928,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"success\",\n  \"events\": {{ \n    (() => {\n      const items = $('Get Events').all();\n      if (!items || items.length === 0) return [];\n      return items.map(item => {\n        const start = item.json.start?.dateTime || item.json.start?.date;\n        return {\n          \"id\": item.json.id,\n          \"summary\": item.json.summary,\n          \"start\": item.json.start?.dateTime,\n          \"end\": item.json.end?.dateTime,\n          \"display\": start ? new Date(start).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : \"Invalid Date\"\n        };\n      });\n    })()\n  }}\n}",
+        "options": {}
+      },
+      "id": "4279835e-bf12-4713-8e99-3a2dde25f2f5",
+      "name": "Respond to Webhook4",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        32,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const body = $('Webhook Call').first().json.body;\n  const configNode = $('config').first();\n  if (!configNode) return [{ json: { error: true, message: 'Config not found' } }];\n  const fullConfig = configNode.json;\n  const requestedProf = body.profissional || body.employeeEmail;\n  const procedureId = body.procedureId || body.proceduresId;\n\n  if (requestedProf) {\n    let name = requestedProf;\n    let email = requestedProf;\n    for (const [e, p] of Object.entries(fullConfig.professionals)) {\n      if (e === requestedProf || p.name === requestedProf) {\n        email = e;\n        name = p.name;\n        break;\n      }\n    }\n    return [{ json: { profissionalEmail: email, professionalName: name } }];\n  }\n\n  const procedure = fullConfig.procedures[String(procedureId)];\n  if (!procedure) {\n    return [{ json: { error: true, message: `Procedimento inválido (ID: ${procedureId})`, statusCode: 404 } }];\n  }\n\n  const responsibleNames = procedure.responsible || [];\n  const results = [];\n\n  for (const name of responsibleNames) {\n    const email = Object.keys(fullConfig.professionals).find(e => fullConfig.professionals[e].name === name);\n    if (email) {\n      results.push({ json: { professionalEmail: email, professionalName: name } });\n    }\n  }\n\n  if (results.length === 0) {\n    return [{ json: { error: true, message: 'Nenhum profissional disponível para este procedimento.' } }];\n  }\n\n  return results;\n} catch (e) {\n  return [{ json: { error: true, message: e.message } }];\n}"
+      },
+      "id": "866c454e-7873-4533-97b6-e004ccd3ecac",
+      "name": "Identify Professionals",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1136,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $json.profissionalEmail }}",
+          "mode": "id"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $now.minus({ week: 2 }).toISO() }}",
+        "timeMax": "={{ $now.plus({ week: 2 }).toISO() }}",
+        "options": {
+          "query": "={{ $('Webhook Call').item.json.body.email }}",
+          "timeZone": "America/Sao_Paulo"
+        }
+      },
+      "id": "dda2ac05-4990-4c16-abc7-faeb62ff56f2",
+      "name": "Get Events",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -608,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $json.profissionalEmail }}",
+          "mode": "id"
+        },
+        "eventId": "={{ $('Webhook Call').item.json.body.id }}",
+        "options": {}
+      },
+      "id": "a4f3fae3-7252-45bc-93ad-e5b9561d3a3d",
+      "name": "Delete event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        -608,
+        944
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const input = $input.first().json;\n  const entry = $('Webhook Call').first().json.body;\n  const configNode = $('config').first();\n  if (!configNode) return [{ json: { error: true, message: 'Node config não encontrado ou sem dados.' } }];\n  const fullConfig = configNode.json;\n  const calendarId = entry.profissional || entry.employeeEmail;\n\n  const busy = input.calendars[calendarId]?.busy || [];\n  const startTimeStr = entry.startTime;\n\n  const procedureId = entry.procedureId || entry.proceduresId;\n  const procedure = fullConfig.procedures[String(procedureId)];\n  if (!procedure) {\n    return [{ json: { slotFree: false, message: `Procedimento inválido ou não encontrado (ID: ${procedureId})`, statusCode: 404 } }];\n  }\n  const slotDurationMin = procedure.duration;\n  const conflictDurationMin = procedure.isParallel ? (procedure.setupMinutes || 0) : procedure.duration;\n  const stepIntervalMin = 15;\n  const timezone = 'America/Sao_Paulo';\n\n  const defaultProv = { start_h: 8, start_m: 0, end_h: 18, end_m: 0 };\n  const prof = (fullConfig.professionals && calendarId && fullConfig.professionals[calendarId]) ? fullConfig.professionals[calendarId] : { default: defaultProv, exceptions: {} };\n\n  const clinicCliffHour = 20;\n  const selectedDate = new Date(startTimeStr);\n  const selectedStart = selectedDate.getTime();\n  const selectedEnd = selectedStart + slotDurationMin * 60000;\n  const conflictEnd = selectedStart + conflictDurationMin * 60000;\n\n  function generateSlots() {\n    const now = new Date();\n    const slots = [];\n    const busyPeriods = busy.map(b => ({ start: new Date(b.start).getTime(), end: new Date(b.end).getTime() }));\n\n    for (let d = 0; d <= 14; d++) {\n      let day = new Date();\n      day.setDate(day.getDate() + d);\n      day.setHours(0, 0, 0, 0);\n      const weekday = day.getDay();\n      if (weekday === 0) continue;\n\n      let dayRules = prof.exceptions[weekday] || prof.default;\n      const datePrefix = day.toISOString().split('T')[0];\n      let workStart = new Date(`${datePrefix}T${String(dayRules.start_h).padStart(2, '0')}:${String(dayRules.start_m).padStart(2, '0')}:00-03:00`);\n      let workEnd = new Date(`${datePrefix}T${String(dayRules.end_h).padStart(2, '0')}:${String(dayRules.end_m).padStart(2, '0')}:00-03:00`);\n      let cliffEnd = new Date(`${datePrefix}T${String(clinicCliffHour).padStart(2, '0')}:00:00-03:00`);\n\n      let cursor = new Date(workStart);\n      if (d === 0 && now > workStart) {\n        cursor = new Date(now);\n        const m = cursor.getMinutes();\n        cursor.setMinutes(Math.ceil(m / stepIntervalMin) * stepIntervalMin, 0, 0);\n      }\n\n      while (cursor.getTime() <= workEnd.getTime()) {\n        const slotStart = cursor.getTime();\n        const slotEndTotal = slotStart + slotDurationMin * 60000;\n        const slotEndForConflict = slotStart + conflictDurationMin * 60000;\n        if (slotEndTotal > cliffEnd.getTime()) break;\n\n        const isBusy = conflictDurationMin > 0 ? busyPeriods.some(b => (slotStart < b.end && slotEndForConflict > b.start)) : false;\n        if (!isBusy) {\n          slots.push({\n            iso: cursor.toLocaleString('sv-SE', { timeZone: timezone }).replace(' ', 'T') + '-03:00',\n            display: cursor.toLocaleString('pt-BR', { timeZone: timezone, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })\n          });\n        }\n        cursor = new Date(cursor.getTime() + stepIntervalMin * 60000);\n      }\n    }\n    return slots;\n  }\n\n  const conflict = conflictDurationMin > 0 ? busy.find(b => {\n    const bStart = new Date(b.start).getTime();\n    const bEnd = new Date(b.end).getTime();\n    return (selectedStart < bEnd && conflictEnd > bStart);\n  }) : null;\n\n  if (conflict) {\n    return [{\n      json: {\n        slotFree: false,\n        message: \"Este horário acabou de ser ocupado. Aqui estão novas opções:\",\n        availableSlots: generateSlots()\n      }\n    }];\n  }\n\n  const finalEndISO = new Date(selectedEnd).toLocaleString('sv-SE', { timeZone: timezone }).replace(' ', 'T') + '-03:00';\n  return [{\n    json: {\n      slotFree: true,\n      startTime: startTimeStr,\n      endTime: finalEndISO,\n      procedureName: procedure.name\n    }\n  }];\n} catch (e) {\n  return [{ json: { error: true, message: e.message } }];\n}"
+      },
+      "id": "8724dc8e-97e4-40a8-9f46-3fc077124b93",
+      "name": "Check slot availability",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        384
+      ]
+    },
+    {
+      "parameters": {
+        "content": "**Config:**\n- Services: duration time, preparation time, and professionals\n- Professional working hours, working days/hour exceptions, and G-calendar ID",
+        "height": 432,
+        "width": 192
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1392,
+        176
+      ],
+      "id": "663e9ab0-7605-4869-ba57-ef919718d690",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "**Check available professionals**\n\n- Find a professional and a specific service if the professional name is provided, or the name and service name.\n- Find all professionals for a specific service",
+        "height": 432,
+        "width": 192
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1184,
+        176
+      ],
+      "id": "5be12a30-4a80-45bd-ad1a-e64850ce3e91",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "**Calendar Event Type**\n\n- get_slots\n- set_slot\n- get_events\n- delete_event",
+        "height": 432,
+        "width": 192
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -976,
+        176
+      ],
+      "id": "560bcd33-3c44-4a5b-925c-9073277d99c3",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "**Get free slots**\n- Returns a list of possible scheduling options according to the professional calendar busy slots",
+        "height": 272,
+        "width": 336
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        32
+      ],
+      "id": "3c17b96d-6257-45c5-9127-60f6eeb1ddbb",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "**Check slot availability**\n\n\n\n\n\n\n\n\n\n\n- Verify the informed slot is still available and return true to continue scheduling.\n- if the slot is already busy, returns false and a new list of availability",
+        "height": 336,
+        "width": 224
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -432,
+        352
+      ],
+      "id": "3336cc5f-7bce-4ba8-b9ec-0ad055c4f7e6",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## Not in use\n- Returns the list of calendar\n   events with respective IDs.\n- Delete the event with \n   its corresponding ID.",
+        "height": 368,
+        "width": 1168,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -944,
+        736
+      ],
+      "id": "c2358275-c39b-4dca-b9d6-2d9d993af2d6",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "resource": "calendar",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $json.profissionalEmail }}",
+          "mode": "id"
+        },
+        "timeMin": "={{ [6].includes($now.dayOfWeek) ? $now.plus({ days: 2, minutes: 30 }).toISO() : ([0,7].includes($now.dayOfWeek) ? $now.plus({ days: 1, minutes: 30 }).toISO() : $now.plus({ minutes: 30 }).toISO()) }}",
+        "timeMax": "={{ $now.plus({ days: 14 }).toISO() }}",
+        "options": {
+          "outputFormat": "raw",
+          "timezone": "America/Sao_Paulo"
+        }
+      },
+      "id": "dadede79-19b6-44e3-ad3a-c681bea2f1b8",
+      "name": "Fetch calendar (14-days)",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        144
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "q8MxcPndqv99p4Sa",
+          "name": "Google Calendar account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "resource": "calendar",
+        "calendar": {
+          "__rl": true,
+          "value": "={{ $json.profissionalEmail }}",
+          "mode": "id"
+        },
+        "timeMin": "={{ [6].includes($now.dayOfWeek) ? $now.plus({ days: 2 }).toISO() : ([0, 7].includes($now.dayOfWeek) ? $now.plus({ days: 1 }).toISO() : $now.toISO()) }}",
+        "timeMax": "={{ $now.plus({ days: 14 }).toISO() }}",
+        "options": {
+          "outputFormat": "raw",
+          "timezone": "America/Sao_Paulo"
+        }
+      },
+      "id": "e228a366-2420-4480-aabd-f5b313712759",
+      "name": "Fetch calendar (14-days)2",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        384
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "q8MxcPndqv99p4Sa",
+          "name": "Google Calendar account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Create Calendar Event": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Create Calendar Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Call": {
+      "main": [
+        [
+          {
+            "node": "config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Fetch calendar (14-days)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch calendar (14-days)2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "config": {
+      "main": [
+        [
+          {
+            "node": "Identify Professionals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Identify Professionals": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Events": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete event": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get free slots": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check slot availability": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch calendar (14-days)": {
+      "main": [
+        [
+          {
+            "node": "Get free slots",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch calendar (14-days)2": {
+      "main": [
+        [
+          {
+            "node": "Check slot availability",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "fb341c23-63e4-421f-98b2-4a6d286f7b11",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "db7697b2ccf6b172b230e4c6099aee580cff6d7365e4c3efedf89ab1217e98e8"
+  },
+  "id": "EPLb1Omhpd8fyCvY",
+  "tags": []
+}
